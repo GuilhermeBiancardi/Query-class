@@ -1,172 +1,151 @@
-# Query-Class
+# QueryPdo Class
+
+Classe PHP wrapper para conexões seguras e fáceis com banco de dados MySQL utilizando PDO.
 
 ## Inclusão da Classe
 
 ```php
-    include_once "diretorio/Query.class.php";
+include_once "diretorio/QueryPdo.class.php";
+
+use Biancardi\Database\QueryPdo;
 ```
 
-## Chamada da Classe
+## Configuração
 
-Existem 2 formas de utilizar chamar a classe, cada uma oferece uma solução diferente para determinado tipo de problema.
+A classe utiliza o padrão **Singleton** para gerenciar a conexão. Você pode configurar a conexão de duas formas:
 
-### Solução 1: Para uso em apenas UMA DATABASE
+### 1. Definindo Constantes (Recomendado)
 
-Deve-se editar o arquivo **Query.class.php** colocar as informação de conexão dentro da classe:
+Defina as constantes `DB_HOST`, `DB_NAME`, `DB_USER` e `DB_PASS` antes de chamar a classe.
 
 ```php
-    private $ip = "IP";
-    private $database = "DATABASE";
-    private $user = "USER";
-    private $pass = "PASSWORD";
+define("DB_HOST", "localhost");
+define("DB_NAME", "nome_do_banco");
+define("DB_USER", "usuario");
+define("DB_PASS", "senha");
+
+$db = QueryPdo::getInstance();
 ```
 
-Concluído a edição basta guardar a chamada da classe em uma variálvel.
+### 2. Passando Parâmetros na Primeira Chamada
+
+Você pode passar os dados de conexão diretamente no método `getInstance` na primeira vez que ele for chamado.
 
 ```php
-    $query = new Query();
+$db = QueryPdo::getInstance(
+    "mysql:host=localhost;dbname=nome_do_banco;charset=utf8mb4",
+    "usuario",
+    "senha"
+);
 ```
 
-### Solução 2: Para utiliza-la em várias DATABASES
+---
 
-Você pode utiliza-la de 2 formas:
+## Modo de Uso
 
-> Definindo uma DATABASE em cada requisição:
+### Selecionando Dados (`select`)
 
-Toda vez que for chamar a classe deverá colocar as informações de conexão dentro da chamada:
-```php
-	$query1 = new Query("IP1", "DATABSE1", "USER1", "PASSWORD1");
-	$query2 = new Query("IP2", "DATABSE2", "USER2", "PASSWORD2");
-```
-OU
-
-> Definir uma DATABASE principal na classe:
-
-Dessa forma você configura a conexão da DATABASE principal dentro do **Query.class.php** e chama outras DATABASES da forma anterior:
+O método `select` retorna um array de arrays associativos ou `false` se não houver resultados.
 
 ```php
-	// DATABASE principal
-	$query1 = new Query();
-	// DATABASE secundária
-	$query2 = new Query("IP", "DATABSE", "USER", "PASSWORD");
-```
-Uma outra solução para a definição da conexão é por meio de um **Array**:
+$db = QueryPdo::getInstance();
 
-```php
-	$conexao = Array(
-		["ip"] => "IP",
-		["database"] => "DATABASE",
-		["user"] => "USER",
-		["pass"] => "PASSWORD"
-	);
-	
-	$query = new Query($conexao);
+// Exemplo básico
+$sql = "SELECT * FROM usuarios";
+$usuarios = $db->select($sql);
+
+// Exemplo com parâmetros (Prepared Statements)
+$sql = "SELECT * FROM usuarios WHERE id = :id";
+$params = [':id' => 1];
+$usuario = $db->select($sql, $params);
+
+if ($usuario) {
+    print_r($usuario);
+}
 ```
 
-## Modo de uso:
-Suponhamos que temos a seguinte situção:
+### Inserindo Dados (`insert`)
 
-***Tabela usuario:***
-
- id | nome | sobrenome 
-----|------|----------
- 1 | Guilherme | Biancardi
- 2 | Leiliane| Paiva
-
-Editamos a classe **Query.class.php** e já está tudo pronto para o uso, preciso selecionar todos nomes da tabela **usuario**:
-```php
-	$query = new Query();
-	$sql = "SELECT * FROM usuarios";
-	$dados = $query->Select($sql);
-```
-O retorno contido em **$dados** será um array com as informações a seguir:
+O método `insert` retorna o ID do último registro inserido.
 
 ```php
-	Array(
-		[0] => Array(
-			["id"] => 1,
-			["nome"] => "Guilherme",
-			["sobrenome"] => "Biancardi"
-		),
-		[1] => Array(
-			["id"] => 2,
-			["nome"] => "Leiliane",
-			["sobrenome"] => "Paiva"
-		),
-	);
+$sql = "INSERT INTO usuarios (nome, sobrenome) VALUES (:nome, :sobrenome)";
+$params = [
+    ':nome' => 'Guilherme',
+    ':sobrenome' => 'Biancardi'
+];
+
+$novoId = $db->insert($sql, $params);
+echo "Usuário criado com ID: " . $novoId;
 ```
 
-No caso de uma atualização em algum registro ou remoção, deve-se utilizar dessa forma:
-```php
-	$query = new Query();
-	// Update
-	$sql = "UPDATE usuarios SET nome = 'Leily' WHERE id = 2";
-	// Remoção
-	$sql = "DELETE FROM `usuarios` WHERE id = 2";
-	$dados = $query->Atualizar($sql);
-```
-O retorno será um boleano `TRUE` ou `FALSE`, e para o caso de inserção:
-```php
-	$query = new Query();
-	$sql = "INSERT INTO usuarios (id, nome, sobrenome) VALUES (NULL, 'Ana', 'Clara')";
-	$dados = $query->Inserir($sql);
-```
-Neste exemplo nosso campo **ID** da tabela **usuario** é uma chave primária auto incrementada (padrão), o retorno contido em **$dados** será o **ID** deste novo registro na tabela.
+### Atualizando Dados (`update`)
 
-E caso precise visualizar o retorno de uma busca à determinada tabela utilize:
+O método `update` retorna `true` em caso de sucesso.
 
 ```php
-	$query = new Query();
-	$sql = "SELECT * FROM usuarios";
-	$dados = $query->Select($sql);
-	$query->printr($dados);
+$sql = "UPDATE usuarios SET nome = :nome WHERE id = :id";
+$params = [
+    ':nome' => 'Novo Nome',
+    ':id' => 1
+];
+
+if ($db->update($sql, $params)) {
+    echo "Atualizado com sucesso!";
+}
 ```
-Assim será mostrado na tela o **Array** resultante já mostrado anteriormente:
+
+### Deletando Dados (`delete`)
+
+Funciona de forma similar ao update.
 
 ```php
-	Array(
-		[0] => Array(
-			["id"] => 1,
-			["nome"] => "Guilherme",
-			["sobrenome"] => "Biancardi"
-		),
-		[1] => Array(
-			["id"] => 2,
-			["nome"] => "Leiliane",
-			["sobrenome"] => "Paiva"
-		),
-	);
+$sql = "DELETE FROM usuarios WHERE id = :id";
+$params = [':id' => 1];
+
+$db->delete($sql, $params);
+```
+
+## Transações
+
+A classe suporta transações manuais (beginTransaction, commit, rollback).
+
+```php
+try {
+    $db->beginTransaction();
+
+    $db->insert("INSERT INTOLog ...", [...]);
+    $db->update("UPDATE Conta ...", [...]);
+
+    $db->commit();
+} catch (Exception $e) {
+    $db->rollback();
+    echo "Erro na transação: " . $e->getMessage();
+}
 ```
 
 ## Segurança
 
-Para evitar qualquer tipo de problema com SQL Injection, pode-se utilizar um método de sua preferência ou o disponível na própria classe:
+A classe `QueryPdo` utiliza **Prepared Statements** do PDO internamente em todos os métodos (`execute`, `query`, `select`, `insert`, etc.). Isso previne automaticamente ataques de SQL Injection, não sendo necessário sanitizar as strings manualmente como na classe antiga.
+
+Basta sempre passar os valores dinâmicos array de `$params`.
 
 ```php
-	$query = new Query();
-	$sql = sprintf(
-		"SELECT * FROM usuarios WHERE nome = '%s'",
-		$query->AntiSqlInjection("1' OR '1'='1") // Tentativa de SQLInjection a ser tratada
-	);
-	$response = $query->Select($sql);
+// SEGURO
+$db->select("SELECT * FROM users WHERE name = :name", [':name' => $inputUsuario]);
+
+// INSEGURO (Não faça isso)
+$db->select("SELECT * FROM users WHERE name = '$inputUsuario'");
 ```
-O Resultado de **$sql** será o SQL Tratado para inserção:
 
-    SELECT * FROM usuarios WHERE nome = '1&#39; OR &#39;1&#39;=&#39;1'
+## Tratamento de Erros e Logs
 
-Pode-se utilizar tambem o metodo **AntiSqlInjection()** para guardar caracteres especiais no banco sem ter problemas com charset na hora de exibi-los:
+Erros de conexão ou execução geram logs no `error_log` do PHP com o prefixo `[QueryPdo Error]` e lançam uma `Exception` que pode ser capturada.
 
 ```php
-	$query = new Query();
-	$sql = sprintf(
-		"SELECT * FROM usuarios WHERE nome = '%s'",
-		$query->AntiSqlInjection("\nIñtërnâtiônàlizætiøn\t") // String a ser tratada
-	);
-	$response = $query->Select($sql);
+try {
+    $db->select("SELECT * FROM tabela_inexistente");
+} catch (Exception $e) {
+    echo "Ocorreu um erro: " . $e->getMessage();
+}
 ```
-
-O Resultado de **$sql** será o SQL Tratado para inserção:
-
-    SELECT * FROM usuarios WHERE nome = 'I&#195;&#177;t&#195;&#171;rn&#195;&#162;ti&#195;&#180;n&#195;&#160;liz&#195;&#166;ti&#195;&#184;n'
-
-Aproveitem!!!
